@@ -89,7 +89,7 @@ use Sys::Hostname;
 use IPC::Open3;
 use IO::Select;
 
-my $DEBUG = 1;
+my $DEBUG = 0;
 my $MAX_PGS = ($DEBUG==2 ? 1 : 0 + `cat /proc/cpuinfo  | grep -e '^processor' | wc -l`);
 my $MAX_FILES = ( !$DEBUG ? 2 : 1) ;
 
