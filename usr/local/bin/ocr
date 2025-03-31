@@ -89,7 +89,7 @@ use Sys::Hostname;
 use IPC::Open3;
 use IO::Select;
 
-my $DEBUG = 0;
+my $DEBUG = 1;
 my $MAX_PGS = ($DEBUG==2 ? 1 : 0 + `cat /proc/cpuinfo  | grep -e '^processor' | wc -l`);
 my $MAX_FILES = ( !$DEBUG ? 2 : 1) ;
 
@@ -412,8 +412,9 @@ sub ocr {
 
 			if (! defined $img_t[$i] ) {
 				move ("${tmpdir}/${pg}.pdf","${tmpdir}/${pg}-cpdf.pdf");
+		
 				print "\t\t${in_file}: ".(${i}+1)." / $pages: Undefined image type on page, ignoring page\n" if $DEBUG;
-				exit -1;
+			
 			}
 
 			print "\t\t${in_file}: ".(${i}+1)." / $pages:  $pg_w[$i] x $pg_h[$i] - $pg_r[$i] & $img_w[$i] x $img_h[$i], $img_t[$i] " if $DEBUG;
@@ -426,6 +427,8 @@ sub ocr {
 			# Use PDFIMAGES and JPEG by default
 			$cmd = "${PDFIMAGES} -j \"${tmpdir}\"/${pg}.pdf \"${tmpdir}\"/${pg}";
 			my $smart_img_extract = 1;
+			
+			if (defined $img_t[$i] ) {
 
 			if ($img_t[$i] eq "color_mask") {
 				#$cmd = "${PDFTOPPM} -jpegcmyk -scale-to-x $img_w[$i] -scale-to-y $img_h[$i]  \"${tmpdir}\"/${pg}.pdf \"${tmpdir}\"/${pg}";
@@ -457,14 +460,23 @@ sub ocr {
                                 print "\t\t\t\t$_" for @out ;
                                 print "\t\t\t\t$_" for @err ;
                         };
+			};
 
 			# Process each resulting image for page pdf
 			my @images = ( find ( file => name =>  qr/${pg}.*\.(jpg|tif|tiff|jpeg|jp2|jb2|png|ppm|pbm|pnm|pgm)/i , in => ${tmpdir} )) ;
 
 			if (scalar @images == 0)  {
-				move ("${tmpdir}/${pg}.pdf","${tmpdir}/${pg}-cpdf.pdf");
-				print "\t\t${in_file}: ".(${i}+1)." / $pages: Page was not exported as a tesseract supported format -- not OCRing\n" if $DEBUG;
-				exit 0;
+				#move ("${tmpdir}/${pg}.pdf","${tmpdir}/${pg}-cpdf.pdf");
+				print "\t\t${in_file}: ".(${i}+1)." / $pages: Page was not exported as a tesseract supported format -- going nuclear with imagemagick\n" if $DEBUG;
+				$cmd = "${CONVERT} -density 300 \"/${pg}.pdf \"${tmpdir}\"/${pg}.jpg";
+				($exit,$cmd,@out,@err) = exec_cmd($cmd);
+				if ($DEBUG) {
+					print "\t\t\t${pg}.pdf -> ${cmd}: $exit\n";
+                	                print "\t\t\t\t$_" for @out ;
+                        	        print "\t\t\t\t$_" for @err ;
+	                        };
+				@images = ( find ( file => name =>  qr/${pg}.*\.(jpg|tif|tiff|jpeg|jp2|jb2|png|ppm|pbm|pnm|pgm)/i , in => ${tmpdir} )) ;
+				
 			}
 
 			foreach my $image (@images) { 
